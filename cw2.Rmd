@@ -1,0 +1,1507 @@
+---
+title: "Part 2 MLP"
+author: "Shaaf Ahmad W17906977"
+date: '2022-04-29'
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+## Discussion of the various methods used for defining the input vector
+
+Time series is a dataset in which one or more variables are measured over time. We will be doing a One-step forecast using the Autoregression (AR) model. AR is a linear model which predicts a variables future value using its past (lag) values.
+
+However there are other models which can be used in time series forecasting. 
+
+#### Moving Average (MA)
+
+Moving average models use lagged values of forecast errors. The moving average model has use multiple steps back. MA(3) model has an order of 3 and uses 3 time step back.
+
+#### Autoregressive moving average (ARMA)
+
+ARMA models combine both Autoregression and Moving average into one model. ARMA uses both values of past forecast errors and past lag values. This model is often known as ARMA(p,q) model where p is p lagged values and q is the residuals up to q lags.
+
+#### Autoregressive integrated moving average (ARIMA)
+
+ARIMA(p,d,q)
+
+
+#### Seasonal autoregressive integrated moving-average (SARIMA)
+
+<br/>
+<br/>
+<br/>
+<br/>
+
+```{r}
+library(readxl)
+library(neuralnet)
+library(grid)
+library(MASS)
+library("remotes")
+library(MLmetrics)
+
+UoW_energy<-read_excel("UoW_load.xlsx", sheet = "Sheet1")
+twoInput<-read_excel("UoW_load.xlsx", sheet = "Sheet2")
+threeInput<-read_excel("UoW_load.xlsx", sheet = "Sheet3")
+fourInput<-read_excel("UoW_load.xlsx", sheet = "Sheet4")
+
+fourInput2<-read_excel("UoW_load.xlsx", sheet = "Sheet5")
+
+NARX1<-read_excel("UoW_load.xlsx", sheet = "NARX1")
+NARX2<-read_excel("UoW_load.xlsx", sheet = "NARX2")
+
+```
+
+
+
+
+
+```{r}
+normalize <- function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+
+
+threeInput_norm<-as.data.frame(lapply(threeInput,normalize))
+
+twoInput_norm<-as.data.frame(lapply(twoInput,normalize))
+
+fourInput_norm<-as.data.frame(lapply(fourInput,normalize))
+
+fourInput2_norm<-as.data.frame(lapply(fourInput2,normalize))
+
+NARX1_norm<-as.data.frame(lapply(NARX1, normalize))
+
+NARX2_norm<-as.data.frame(lapply(NARX2, normalize))
+
+
+
+
+
+
+```
+
+
+```{r}
+threeInput_train<-threeInput_norm[1:427,]
+threeInput_test<-threeInput_norm[428:497,]
+
+twoInput_train<-twoInput_norm[1:428,]
+twoInput_test<-twoInput_norm[429:498,]
+
+
+fourInput_train<-fourInput_norm[1:426,]
+fourInput_test<-fourInput_norm[427:496,]
+
+fourInput2_train<-fourInput2_norm[1:422,]
+fourInput2_test<-fourInput2_norm[423:492,]
+
+NARX1_train<-NARX1_norm[1:427,]
+NARX1_test<-NARX1_norm[428:497,]
+
+NARX2_train<-NARX2_norm[1:426,]
+NARX2_test<-NARX2_norm[429:498,]
+```
+
+
+
+### 4 input2 h1 24 h2 6
+
+```{r}
+set.seed(12345)
+fourInput2Model.h1.24.h2.6.TRUE.nn<-neuralnet(tPlus1~tMinus7+tMinus2+tMinus1+t,data = fourInput2_train,hidden = c(24,6),act.fct = "logistic",linear.output = TRUE)
+
+plot(fourInput2Model.h1.24.h2.6.TRUE.nn, rep = "best")
+
+fourInput2Model.h1.24.h2.6.TRUE.nn_Result<-compute(fourInput2Model.h1.24.h2.6.TRUE.nn,fourInput2_test[1:4])
+
+
+predicted_tomorrow<-fourInput2Model.h1.24.h2.6.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput2_test$tPlus1)
+
+
+fourInput2_train<-fourInput2_norm[1:422,]
+fourInput2_test<-fourInput2_norm[423:492,]
+
+fourInput2_train_original<-as.data.frame(fourInput2[1:422,"tPlus1"])
+
+
+fourInput2_test_original<-as.data.frame(fourInput2[423:492,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput2_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput2_train_original)
+#tomorrow_max
+
+
+head(fourInput2_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+plot(data.frame(fourInput2_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput2_test_original, tomorrow_pred)
+final_result
+```
+
+
+
+```{r}
+set.seed(12345)
+fourInput2Model.h1.24.h2.6.TRUE.nn<-neuralnet(tPlus1~tMinus7+tMinus2+tMinus1+t,data = fourInput2_train,hidden = c(22,5),act.fct = "logistic",linear.output = TRUE)
+
+plot(fourInput2Model.h1.24.h2.6.TRUE.nn, rep = "best")
+
+fourInput2Model.h1.24.h2.6.TRUE.nn_Result<-compute(fourInput2Model.h1.24.h2.6.TRUE.nn,fourInput2_test[1:4])
+
+
+predicted_tomorrow<-fourInput2Model.h1.24.h2.6.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput2_test$tPlus1)
+
+
+fourInput2_train<-fourInput2_norm[1:422,]
+fourInput2_test<-fourInput2_norm[423:492,]
+
+fourInput2_train_original<-as.data.frame(fourInput2[1:422,"tPlus1"])
+
+
+fourInput2_test_original<-as.data.frame(fourInput2[423:492,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput2_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput2_train_original)
+#tomorrow_max
+
+
+head(fourInput2_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+plot(data.frame(fourInput2_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput2_test_original, tomorrow_pred)
+final_result
+```
+
+
+
+
+### 4 input h1 22 h2 8 
+
+```{r}
+set.seed(12345)
+fourInput2Model.h1.22.h2.8.TRUE.nn<-neuralnet(tPlus1~tMinus7+tMinus2+tMinus1+t,data = fourInput2_train,hidden = c(9),act.fct = "logistic",linear.output = TRUE)
+
+plot(fourInput2Model.h1.22.h2.8.TRUE.nn,rep = "best")
+
+fourInput2Model.h1.22.h2.8.TRUE.nn_Result<-compute(fourInput2Model.h1.22.h2.8.TRUE.nn,fourInput2_test[1:4])
+
+
+predicted_tomorrow<-fourInput2Model.h1.22.h2.8.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput2_test$tPlus1)
+
+
+fourInput2_train<-fourInput2_norm[1:422,]
+fourInput2_test<-fourInput2_norm[423:492,]
+
+fourInput2_train_original<-as.data.frame(fourInput2[1:422,"tPlus1"])
+
+
+fourInput2_test_original<-as.data.frame(fourInput2[423:492,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput2_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput2_train_original)
+#tomorrow_max
+
+
+head(fourInput2_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+plot(data.frame(fourInput2_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput2_test_original, tomorrow_pred)
+final_result
+```
+
+
+
+
+
+
+
+### 4 input model 2 with hidden layer1 = 19 hidden layer 2 = 6
+
+
+```{r}
+
+set.seed(12345)
+
+fourInput2Model.h1.19.h2.6.TRUE.nn<-neuralnet(tPlus1~tMinus7+tMinus2+tMinus1+t,data = fourInput2_train,hidden = c(19,6),act.fct = "logistic",linear.output = TRUE)
+
+plot(fourInput2Model.h1.19.h2.6.TRUE.nn,rep = "best")
+
+
+fourInput2Model.h1.19.h2.6.TRUE.nn_Result<-compute(fourInput2Model.h1.19.h2.6.TRUE.nn,fourInput2_test[1:4])
+
+
+predicted_tomorrow<-fourInput2Model.h1.19.h2.6.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput2_test$tPlus1)
+
+
+fourInput2_train<-fourInput2_norm[1:422,]
+fourInput2_test<-fourInput2_norm[423:492,]
+
+fourInput2_train_original<-as.data.frame(fourInput2[1:422,"tPlus1"])
+
+
+fourInput2_test_original<-as.data.frame(fourInput2[423:492,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput2_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput2_train_original)
+#tomorrow_max
+
+
+head(fourInput2_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+plot(data.frame(fourInput2_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput2_test_original, tomorrow_pred)
+final_result
+
+```
+
+
+### 4 input model 2 with hidden layer1 = 13 hidden layer 2 = 3
+```{r}
+set.seed(12345)
+fourInput2Model.h1.13.h2.3.TRUE.nn<-neuralnet(tPlus1~tMinus7+tMinus2+tMinus1+t,data = fourInput2_train,hidden = c(13,3),act.fct = "logistic",linear.output = TRUE)
+
+plot(fourInput2Model.h1.13.h2.3.TRUE.nn)
+
+fourInput2Model.h1.13.h2.3.TRUE.nn_Result<-compute(fourInput2Model.h1.13.h2.3.TRUE.nn,fourInput2_test[1:4])
+
+
+predicted_tomorrow<-fourInput2Model.h1.13.h2.3.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput2_test$tPlus1)
+
+
+fourInput2_train<-fourInput2_norm[1:422,]
+fourInput2_test<-fourInput2_norm[423:492,]
+
+fourInput2_train_original<-as.data.frame(fourInput2[1:422,"tPlus1"])
+
+
+fourInput2_test_original<-as.data.frame(fourInput2[423:492,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput2_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput2_train_original)
+#tomorrow_max
+
+
+head(fourInput2_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput2_test_original)))
+
+plot(data.frame(fourInput2_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput2_test_original, tomorrow_pred)
+final_result
+```
+
+
+
+## 4 inputs t-3 ,t-2 ,t-1 ,t
+
+
+### 4 input h1 12
+```{r}
+
+set.seed(12345)
+fourInputModel.h1.12.TRUE.nn<-neuralnet(tPlus1~tMinus3+tMinus2+tMinus1+t,
+                                        data = fourInput_train,hidden = c(12),
+                                        act.fct = "logistic",linear.output = TRUE)
+plot(fourInputModel.h1.12.TRUE.nn)
+
+
+fourInputModel.h1.12.TRUE.nn_Result<-compute(fourInputModel.h1.12.TRUE.nn,fourInput_test[1:4])
+
+
+predicted_tomorrow<-fourInputModel.h1.12.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput_test$tPlus1)
+
+
+fourInput_train<-fourInput_norm[1:426,]
+fourInput_test<-fourInput_norm[427:496,]
+
+fourInput_train_original<-as.data.frame(fourInput[1:426,"tPlus1"])
+
+
+fourInput_test_original<-as.data.frame(fourInput[427:496,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput_train_original)
+#tomorrow_max
+
+
+head(fourInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+plot(data.frame(fourInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput_test_original, tomorrow_pred)
+final_result
+
+
+```
+
+'### 4 input h1 12 h2 6
+
+```{r}
+
+set.seed(12345)
+fourInputModel.h1.12.h2.6.TRUE.nn<-neuralnet(tPlus1~tMinus3+tMinus2+tMinus1+t,
+                                              data = fourInput_train,hidden = c(12,6),
+                                              act.fct = "logistic",linear.output = TRUE)
+plot(fourInputModel.h1.12.h2.6.TRUE.nn, rep="best")
+
+
+
+fourInputModel.h1.12.h2.6.TRUE.nn_Result<-compute(fourInputModel.h1.12.h2.6.TRUE.nn,fourInput_test[1:4])
+
+
+predicted_tomorrow<-fourInputModel.h1.12.h2.6.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput_test$tPlus1)
+
+
+fourInput_train<-fourInput_norm[1:426,]
+fourInput_test<-fourInput_norm[427:496,]
+
+fourInput_train_original<-as.data.frame(fourInput[1:426,"tPlus1"])
+
+
+fourInput_test_original<-as.data.frame(fourInput[427:496,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput_train_original)
+#tomorrow_max
+
+
+head(fourInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+plot(data.frame(fourInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput_test_original, tomorrow_pred)
+final_result
+
+
+
+
+
+```
+
+
+
+
+```{r}
+set.seed(12345)
+fourInputModel.h1.12.TRUE.nn<-neuralnet(tPlus1~tMinus3+tMinus2+tMinus1+t,
+                                        data = fourInput_train,hidden = c(12),
+                                        act.fct = "logistic",linear.output = TRUE)
+plot(fourInputModel.h1.12.TRUE.nn)
+
+
+fourInputModel.h1.12.TRUE.nn_Result<-compute(fourInputModel.h1.12.TRUE.nn,fourInput_test[1:4])
+
+
+predicted_tomorrow<-fourInputModel.h1.12.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput_test$tPlus1)
+
+
+fourInput_train<-fourInput_norm[1:426,]
+fourInput_test<-fourInput_norm[427:496,]
+
+fourInput_train_original<-as.data.frame(fourInput[1:426,"tPlus1"])
+
+
+fourInput_test_original<-as.data.frame(fourInput[427:496,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput_train_original)
+#tomorrow_max
+
+
+head(fourInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+plot(data.frame(fourInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput_test_original, tomorrow_pred)
+final_result
+
+
+```
+
+'### 4 input h1 12 h2 6
+
+```{r}
+
+set.seed(12345)
+fourInputModel.h1.12.h2.6.TRUE.nn<-neuralnet(tPlus1~tMinus3+tMinus2+tMinus1+t,
+                                              data = fourInput_train,hidden = c(18),
+                                              act.fct = "logistic",linear.output = TRUE)
+plot(fourInputModel.h1.12.h2.6.TRUE.nn, rep="best")
+
+
+
+fourInputModel.h1.12.h2.6.TRUE.nn_Result<-compute(fourInputModel.h1.12.h2.6.TRUE.nn,fourInput_test[1:4])
+
+
+predicted_tomorrow<-fourInputModel.h1.12.h2.6.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput_test$tPlus1)
+
+
+fourInput_train<-fourInput_norm[1:426,]
+fourInput_test<-fourInput_norm[427:496,]
+
+fourInput_train_original<-as.data.frame(fourInput[1:426,"tPlus1"])
+
+
+fourInput_test_original<-as.data.frame(fourInput[427:496,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput_train_original)
+#tomorrow_max
+
+
+head(fourInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+plot(data.frame(fourInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput_test_original, tomorrow_pred)
+final_result
+```
+
+### 4 input h1 18 h2 4
+```{r}
+
+set.seed(12345)
+fourInputModel.h1.18.h2.4.TRUE.nn<-neuralnet(tPlus1~tMinus3+tMinus2+tMinus1+t,
+                                             data = fourInput_train,hidden = c(18,4),
+                                             act.fct = "logistic",linear.output = TRUE)
+
+plot(fourInputModel.h1.18.h2.4.TRUE.nn)
+
+
+
+
+
+fourInputModel.h1.18.h2.4.TRUE.nn_Result<-compute(fourInputModel.h1.18.h2.4.TRUE.nn,fourInput_test[1:4])
+
+
+predicted_tomorrow<-fourInputModel.h1.18.h2.4.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput_test$tPlus1)
+
+
+fourInput_train<-fourInput_norm[1:426,]
+fourInput_test<-fourInput_norm[427:496,]
+
+fourInput_train_original<-as.data.frame(fourInput[1:426,"tPlus1"])
+
+
+fourInput_test_original<-as.data.frame(fourInput[427:496,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput_train_original)
+#tomorrow_max
+
+
+head(fourInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+plot(data.frame(fourInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput_test_original, tomorrow_pred)
+final_result
+
+
+
+
+```
+
+### 4 input h1 20 h2 9
+
+```{r}
+set.seed(12345)
+fourInputModel.h1.20.h2.9.TRUE.nn<-neuralnet(tPlus1~tMinus3+tMinus2+tMinus1+t,
+                                              data = fourInput_train,hidden = c(20,9),
+                                              act.fct = "logistic",linear.output = TRUE)
+
+plot(fourInputModel.h1.20.h2.9.TRUE.nn, rep = "best")
+
+
+fourInputModel.h1.20.h2.9.TRUE.nn_Result<-compute(fourInputModel.h1.20.h2.9.TRUE.nn,fourInput_test[1:4])
+
+
+predicted_tomorrow<-fourInputModel.h1.20.h2.9.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,fourInput_test$tPlus1)
+
+
+fourInput_train<-fourInput_norm[1:426,]
+fourInput_test<-fourInput_norm[427:496,]
+
+fourInput_train_original<-as.data.frame(fourInput[1:426,"tPlus1"])
+
+
+fourInput_test_original<-as.data.frame(fourInput[427:496,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(fourInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(fourInput_train_original)
+#tomorrow_max
+
+
+head(fourInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(fourInput_test_original)))
+
+plot(data.frame(fourInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(fourInput_test_original, tomorrow_pred)
+final_result
+
+
+
+```
+
+
+
+
+## 3 input model t-2, t-1, t
+
+### 2 input h1 10
+
+```{r}
+set.seed(12345)
+threeInputModel.h1.10.TRUE.nn<-neuralnet(tPlus1~tMinus2+tMinus1+t,
+                                        data = threeInput_train,hidden = c(10),
+                                        act.fct = "logistic",linear.output = TRUE)
+
+plot(threeInputModel.h1.10.TRUE.nn, rep= "best")
+
+
+threeInputModel.h1.10.TRUE.nn_Result<-compute(threeInputModel.h1.10.TRUE.nn,threeInput_test[1:3])
+
+
+predicted_tomorrow<-threeInputModel.h1.10.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,threeInput_test$tPlus1)
+
+
+threeInput_train<-threeInput_norm[1:427,]
+threeInput_test<-threeInput_norm[428:497,]
+
+
+threeInput_train_original<-as.data.frame(threeInput[1:427,"tPlus1"])
+
+
+threeInput_test_original<-as.data.frame(threeInput[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(threeInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(threeInput_train_original)
+#tomorrow_max
+
+
+head(threeInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+plot(data.frame(threeInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(threeInput_test_original, tomorrow_pred)
+final_result
+
+
+
+```
+
+
+
+```{r}
+set.seed(12345)
+threeInputModel.h1.10.TRUE.nn<-neuralnet(tPlus1~tMinus2+tMinus1+t,
+                                        data = threeInput_train,hidden = c(9),
+                                        act.fct = "logistic",linear.output = TRUE)
+
+plot(threeInputModel.h1.10.TRUE.nn, rep= "best")
+
+
+threeInputModel.h1.10.TRUE.nn_Result<-compute(threeInputModel.h1.10.TRUE.nn,threeInput_test[1:3])
+
+
+predicted_tomorrow<-threeInputModel.h1.10.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,threeInput_test$tPlus1)
+
+
+threeInput_train<-threeInput_norm[1:427,]
+threeInput_test<-threeInput_norm[428:497,]
+
+
+threeInput_train_original<-as.data.frame(threeInput[1:427,"tPlus1"])
+
+
+threeInput_test_original<-as.data.frame(threeInput[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(threeInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(threeInput_train_original)
+#tomorrow_max
+
+
+head(threeInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+plot(data.frame(threeInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(threeInput_test_original, tomorrow_pred)
+final_result
+
+```
+
+### h1 10 h2 5
+
+```{r}
+set.seed(12345)
+threeInputModel.h1.10.h2.5.TRUE.nn<-neuralnet(tPlus1~tMinus2+tMinus1+t,
+                                               data = threeInput_train,hidden = c(10,5),
+                                               act.fct = "logistic",linear.output = TRUE)
+plot(threeInputModel.h1.10.h2.5.TRUE.nn, rep = "best")
+
+
+
+threeInputModel.h1.10.h2.5.TRUE.nn_Result<-compute(threeInputModel.h1.10.h2.5.TRUE.nn,threeInput_test[1:3])
+
+
+predicted_tomorrow<-threeInputModel.h1.10.h2.5.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,threeInput_test$tPlus1)
+
+
+threeInput_train<-threeInput_norm[1:427,]
+threeInput_test<-threeInput_norm[428:497,]
+
+
+threeInput_train_original<-as.data.frame(threeInput[1:427,"tPlus1"])
+
+
+threeInput_test_original<-as.data.frame(threeInput[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(threeInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(threeInput_train_original)
+#tomorrow_max
+
+
+head(threeInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+plot(data.frame(threeInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(threeInput_test_original, tomorrow_pred)
+final_result
+
+```
+### 3input h1 24 h2 8
+
+```{r}
+set.seed(12345)
+
+threeInputModel.h1.24.h2.8.TRUE.nn<-neuralnet(tPlus1~tMinus2+tMinus1+t,
+                                               data = threeInput_train,hidden = c(24,8),
+                                               act.fct = "logistic",linear.output = TRUE)
+
+plot(threeInputModel.h1.24.h2.8.TRUE.nn, rep = "best")
+
+
+
+threeInputModel.h1.24.h2.8.TRUE.nn_Result<-compute(threeInputModel.h1.24.h2.8.TRUE.nn,threeInput_test[1:3])
+
+
+predicted_tomorrow<-threeInputModel.h1.24.h2.8.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,threeInput_test$tPlus1)
+
+
+threeInput_train<-threeInput_norm[1:427,]
+threeInput_test<-threeInput_norm[428:497,]
+
+
+threeInput_train_original<-as.data.frame(threeInput[1:427,"tPlus1"])
+
+
+threeInput_test_original<-as.data.frame(threeInput[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(threeInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(threeInput_train_original)
+#tomorrow_max
+
+
+head(threeInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+plot(data.frame(threeInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(threeInput_test_original, tomorrow_pred)
+final_result
+
+
+
+```
+### 3 input h1 23 h2 3
+
+
+```{r}
+set.seed(12345)
+threeInputModel.h1.23.h2.3.TRUE.nn<-neuralnet(tPlus1~tMinus2+tMinus1+t,
+                                              data = threeInput_train,hidden = c(23,3),
+                                              act.fct = "logistic",linear.output = TRUE)
+
+plot(threeInputModel.h1.23.h2.3.TRUE.nn)
+
+
+threeInputModel.h1.23.h2.3.TRUE.nn_Result<-compute(threeInputModel.h1.23.h2.3.TRUE.nn,threeInput_test[1:3])
+
+
+predicted_tomorrow<-threeInputModel.h1.23.h2.3.TRUE.nn_Result$net.result
+
+cor(predicted_tomorrow,threeInput_test$tPlus1)
+
+
+threeInput_train<-threeInput_norm[1:427,]
+threeInput_test<-threeInput_norm[428:497,]
+
+
+threeInput_train_original<-as.data.frame(threeInput[1:427,"tPlus1"])
+
+
+threeInput_test_original<-as.data.frame(threeInput[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(threeInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(threeInput_train_original)
+#tomorrow_max
+
+
+head(threeInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(threeInput_test_original)))
+
+plot(data.frame(threeInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(threeInput_test_original, tomorrow_pred)
+final_result
+
+
+
+
+```
+
+## 2 input t and t-1
+
+
+```{r}
+set.seed(12345)
+twoInput_model.h1.10.h2.8.nn<-neuralnet(tPlus1~t+tMinus1,data = twoInput_train, hidden = c(10,8),act.fct = "logistic",linear.output = TRUE)
+
+plot(twoInput_model.h1.10.h2.8.nn, rep = "best") 
+
+twoInput_model.h1.10.h2.8.nn_Result<-compute(twoInput_model.h1.10.h2.8.nn,twoInput_test[1:2])
+
+
+predicted_tomorrow<-twoInput_model.h1.10.h2.8.nn_Result$net.result
+
+cor(predicted_tomorrow,twoInput_test$tPlus1)
+
+
+twoInput_train<-twoInput_norm[1:428,]
+twoInput_test<-twoInput_norm[429:498,]
+
+
+twoInput_train_original<-as.data.frame(twoInput[1:428,"tPlus1"])
+
+
+twoInput_test_original<-as.data.frame(twoInput[429:498,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(twoInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(twoInput_train_original)
+#tomorrow_max
+
+
+head(twoInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))
+
+plot(data.frame(twoInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(twoInput_test_original, tomorrow_pred)
+final_result
+
+
+
+```
+```{r}
+set.seed(12345)
+twoInput_model.h1.15.h2.4.nn<-neuralnet(tPlus1~t+tMinus1,data = twoInput_train, hidden = c(15,4),act.fct = "logistic",linear.output = TRUE)
+
+plot(twoInput_model.h1.15.h2.4.nn, rep = "best") 
+
+twoInput_model.h1.15.h2.4.nn_Result<-compute(twoInput_model.h1.15.h2.4.nn,twoInput_test[1:2])
+
+
+predicted_tomorrow<-twoInput_model.h1.15.h2.4.nn_Result$net.result
+
+cor(predicted_tomorrow,twoInput_test$tPlus1)
+
+
+twoInput_train<-twoInput_norm[1:428,]
+twoInput_test<-twoInput_norm[429:498,]
+
+
+twoInput_train_original<-as.data.frame(twoInput[1:428,"tPlus1"])
+
+
+twoInput_test_original<-as.data.frame(twoInput[429:498,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(twoInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(twoInput_train_original)
+#tomorrow_max
+
+
+head(twoInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+tomorrow_pred 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))
+
+plot(data.frame(twoInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(twoInput_test_original, tomorrow_pred)
+final_result
+```
+```{r}
+set.seed(12345)
+twoInput_model.h1.12.nn<-neuralnet(tPlus1~t+tMinus1,data = twoInput_train, hidden = c(12),act.fct = "logistic",linear.output = TRUE)
+
+plot(twoInput_model.h1.12.nn, rep = "best") 
+
+twoInput_model.h1.12.nn_Result<-compute(twoInput_model.h1.12.nn,twoInput_test[1:2])
+
+
+predicted_tomorrow<-twoInput_model.h1.12.nn_Result$net.result
+
+cor(predicted_tomorrow,twoInput_test$tPlus1)
+
+
+twoInput_train<-twoInput_norm[1:428,]
+twoInput_test<-twoInput_norm[429:498,]
+
+
+twoInput_train_original<-as.data.frame(twoInput[1:428,"tPlus1"])
+
+
+twoInput_test_original<-as.data.frame(twoInput[429:498,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(twoInput_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(twoInput_train_original)
+#tomorrow_max
+
+
+head(twoInput_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+ 
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))  
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(twoInput_test_original)))
+
+plot(data.frame(twoInput_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(twoInput_test_original, tomorrow_pred)
+final_result
+
+```
+
+
+```{r}
+set.seed(12345)
+NARX1.model<-neuralnet(tPlus1~tMinus2+tMinus1+t+t9+t10,data = NARX1_train,hidden = c(12,2),act.fct = "logistic",linear.output = TRUE)
+
+plot(NARX1.model, rep = "best")
+
+NARX1.model_Result<-compute(NARX1.model,NARX1_test[1:5])
+
+
+predicted_tomorrow<-NARX1.model_Result$net.result
+
+cor(predicted_tomorrow,NARX1_test$tPlus1)
+
+NARX1_train<-NARX1_norm[1:427,]
+NARX1_test<-NARX1_norm[428:497,]
+
+
+
+NARX1_train_original<-as.data.frame(NARX1[1:427,"tPlus1"])
+
+
+NARX1_test_original<-as.data.frame(NARX1[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(NARX1_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(NARX1_train_original)
+#tomorrow_max
+
+
+head(NARX1_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))  
+
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))
+
+plot(data.frame(NARX1_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(NARX1_test_original, tomorrow_pred)
+final_result
+
+```
+```{r}
+set.seed(12345)
+NARX1.model.h1.24.h2.6.nn<-neuralnet(tPlus1~tMinus2+tMinus1+t+t9+t10,data = NARX1_train,hidden = c(8),act.fct = "logistic",linear.output = TRUE)
+
+plot(NARX1.model, rep = "best")
+
+NARX1.model.h1.24.h2.6.nn_Result<-compute(NARX1.model.h1.24.h2.6.nn,NARX1_test[1:5])
+
+
+predicted_tomorrow<-NARX1.model.h1.24.h2.6.nn_Result$net.result
+
+cor(predicted_tomorrow,NARX1_test$tPlus1)
+
+NARX1_train<-NARX1_norm[1:427,]
+NARX1_test<-NARX1_norm[428:497,]
+
+
+
+NARX1_train_original<-as.data.frame(NARX1[1:427,"tPlus1"])
+
+
+NARX1_test_original<-as.data.frame(NARX1[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(NARX1_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(NARX1_train_original)
+#tomorrow_max
+
+
+head(NARX1_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))  
+
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))
+
+plot(data.frame(NARX1_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(NARX1_test_original, tomorrow_pred)
+final_result
+
+```
+
+
+
+```{r}
+
+set.seed(12345)
+NARX2.model<-neuralnet(tPlus1~t10+tMinus1+t,data = NARX2_train,hidden = c(21,4),act.fct = "logistic",linear.output = TRUE)
+
+plot(NARX2.model, rep = "best")
+
+NARX2.model_Result<-compute(NARX2.model,NARX2_test[1:3])
+
+
+predicted_tomorrow<-NARX2.model_Result$net.result
+
+cor(predicted_tomorrow,NARX2_test$tPlus1)
+
+
+NARX2_train<-NARX2_norm[1:426,]
+NARX2_test<-NARX2_norm[429:498,]
+
+
+
+NARX2_train_original<-as.data.frame(NARX2[1:426,"tPlus1"])
+
+
+NARX2_test_original<-as.data.frame(NARX2[429:498,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(NARX2_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(NARX2_train_original)
+#tomorrow_max
+
+
+head(NARX2_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX2_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX2_test_original)))  
+
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX2_test_original)))
+
+plot(data.frame(NARX2_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(NARX2_test_original, tomorrow_pred)
+final_result
+
+```
+
+
+```{r}
+set.seed(12345)
+NARX1.model<-neuralnet(tPlus1~tMinus2+tMinus1+t+t9+t10,data = NARX1_train,hidden = c(15),act.fct = "logistic",linear.output = TRUE)
+
+plot(NARX1.model, rep = "best")
+
+NARX1.model_Result<-compute(NARX1.model,NARX1_test[1:5])
+
+
+predicted_tomorrow<-NARX1.model_Result$net.result
+
+cor(predicted_tomorrow,NARX1_test$tPlus1)
+
+NARX1_train<-NARX1_norm[1:427,]
+NARX1_test<-NARX1_norm[428:497,]
+
+
+
+NARX1_train_original<-as.data.frame(NARX1[1:427,"tPlus1"])
+
+
+NARX1_test_original<-as.data.frame(NARX1[428:497,"tPlus1"])
+#twoInput_test_original
+
+tomorrow_min<-min(NARX1_train_original)
+#tomorrow_min
+
+tomorrow_max<-max(NARX1_train_original)
+#tomorrow_max
+
+
+head(NARX1_train_original)
+
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+
+tomorrow_pred <- unnormalize(predicted_tomorrow, tomorrow_min, tomorrow_max)
+
+
+
+RMSE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))
+
+MAE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))  
+
+MAPE(as.numeric(unlist(tomorrow_pred)),as.numeric(unlist(NARX1_test_original)))
+
+plot(data.frame(NARX1_test_original, tomorrow_pred) ,col='red',main='Real vs predicted NN',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+
+
+final_result <- cbind(NARX1_test_original, tomorrow_pred)
+final_result
+
+```
+
+## Discussion of the meaning of these stat. indices 
+
+
